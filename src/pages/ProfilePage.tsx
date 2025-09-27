@@ -2,6 +2,8 @@
     import type { User } from "@supabase/supabase-js";
     import { Card, LabeledInput } from "../components/ui/Primitives";
     import { supabase } from "../lib/supabase";
+    import { ALL_TAG_SLUGS } from "../tags";
+
 
     export default function ProfilePage({ user, onRequestAuth }: { user: User | null; onRequestAuth: () => void; }) {
     const [loading, setLoading] = useState(false);
@@ -21,6 +23,9 @@
 
     const [modalType, setModalType] = useState<"followers" | "following" | null>(null);
     const [modalUsers, setModalUsers] = useState<{ id: string; handle: string | null; email: string | null }[]>([]);
+    const [preferredTags, setPreferredTags] = useState<string[]>([]);
+    //WIP const [isFollowing, setIsFollowing] = useState(false);
+
 
 
     useEffect(() => {
@@ -30,7 +35,7 @@
             try {
                 const { data, error } = await supabase
                     .from("profiles")
-                    .select("handle,bio,avatar_url,name,email,followers,following")
+                    .select("handle,bio,avatar_url,name,email,followers,following,preferred_tags")
                     .eq("id", user.id)
                     .single();
 
@@ -44,6 +49,8 @@
                     setEmail(data.email ?? "")
                     setFollowers(data.followers ?? []);
                     setFollowing(data.following ?? []);
+                    setPreferredTags(data.preferred_tags ?? []); // 👈 load tags
+
                 }
             } catch {
                 setSupported(false);
@@ -97,6 +104,7 @@
         );
     }
 
+
     const initials =
         (user.user_metadata?.full_name as string | undefined)?.trim()?.slice(0, 1)?.toUpperCase() ||
         (user.email?.slice(0, 1).toUpperCase() ?? "U");
@@ -109,6 +117,13 @@
             setTimeout(() => setCopied(false), 1200);
         } catch {}
     }
+    function toggleTag(tag: string) {
+      setPreferredTags((prev) =>
+        prev.includes(tag)
+          ? prev.filter((t) => t !== tag)
+          : [...prev, tag]
+      );
+    }
 
     async function saveProfile() {
         if (!supabase || !user) return;
@@ -120,6 +135,7 @@
                 bio: bio || null,
                 avatar_url: avatarUrl || null,
                 name: name || null,
+                preferred_tags: preferredTags, // 👈 save tags
                 email: email || user.email, // fall back to auth email if empty
                 updated_at: new Date().toISOString(),
             });
@@ -270,6 +286,26 @@
             />
             </LabeledInput>
             <div className="pt-1">
+             <h4 className="text-sm font-semibold mb-2">Preferred Tags</h4>
+             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                {ALL_TAG_SLUGS.map((tag) => {
+                const selected = preferredTags.includes(tag);
+                return (
+                <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`px-3 py-1 rounded-full text-sm border ${
+                    selected
+                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 dark:border-white"
+                    : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+                    }`}
+                    >
+                    {tag}
+                </button>
+            );
+            })}
+            </div>
             <button
                 onClick={saveProfile}
                 disabled={saving}
