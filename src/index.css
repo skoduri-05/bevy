@@ -1,0 +1,11 @@
+/* src/index.css */
+@import "tailwindcss";
+
+/* (optional) Tailwind v4 @theme: define tokens right in CSS */
+@theme {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    --color-brand: #111827;
+    /* neutral-900 lookalike for your dark buttons */
+    --radius-2xl: 1.25rem;
+}
+@custom-variant dark (&:where(.dark, .dark *));
