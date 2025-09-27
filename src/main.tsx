@@ -1,8 +1,8 @@
 // src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "./index.css";             // <-- Tailwind here
-import BevyApp from "./components/BevyApp";  // <-- The component I built for you
+import "./index.css";
+import BevyApp from "./components/BevyApp";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

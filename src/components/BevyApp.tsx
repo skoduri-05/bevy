@@ -447,6 +447,7 @@ function ProfilePage({
         (user.email?.slice(0, 1).toUpperCase() ?? "U");
 
     async function copyId() {
+        if (!user) return;
         try {
             await navigator.clipboard.writeText(user.id);
             setCopied(true);
@@ -455,7 +456,7 @@ function ProfilePage({
     }
 
     async function saveProfile() {
-        if (!supabase) return;
+        if (!supabase || !user) return;
         setSaving(true);
         try {
             const { error } = await supabase.from("profiles").upsert({
