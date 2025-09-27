@@ -1,26 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-const supabase: SupabaseClient | null =
-    supabaseUrl && supabaseKey
-        ? createClient(supabaseUrl, supabaseKey, {
-            auth: { persistSession: true, autoRefreshToken: true },
-        })
-        : null;
-
-/* -------------------- sample data -------------------- */
-const drinksCatalog = [
-    { id: "1", name: "Iced Vanilla Latte", brand: "Daily Grind", type: "coffee", tags: ["iced", "sweet", "vanilla", "espresso"], rating: 4.6, img: "https://images.unsplash.com/photo-1517705008128-361805f42e86?q=80&w=800&auto=format&fit=crop", desc: "Silky iced latte with vanilla and a double shot." },
-    { id: "2", name: "Matcha Oat Latte", brand: "Leaf & Foam", type: "tea", tags: ["matcha", "oat milk", "creamy"], rating: 4.4, img: "https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=800&auto=format&fit=crop", desc: "Stone-ground matcha with smooth oat milk." },
-    { id: "3", name: "Strawberry Refresher", brand: "Sips", type: "refresher", tags: ["fruit", "strawberry", "sparkling", "light"], rating: 4.1, img: "https://images.unsplash.com/photo-1541976076758-347942db1970?q=80&w=800&auto=format&fit=crop", desc: "Bubbly strawberry refresher with mint." },
-    { id: "4", name: "Espresso Tonic", brand: "Volt", type: "coffee", tags: ["espresso", "citrus", "sparkling"], rating: 4.3, img: "https://images.unsplash.com/photo-1504754524776-8f4f37790ca0?q=80&w=800&auto=format&fit=crop", desc: "Bright espresso over tonic with orange twist." },
-    { id: "5", name: "Hefeweizen", brand: "Bavaria Haus", type: "alcohol", tags: ["beer", "banana", "clove", "light"], rating: 4.0, img: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop", desc: "Classic wheat beer with banana-clove notes." },
-    { id: "6", name: "Earl Grey Cold Brew", brand: "Citrus & Bergamot", type: "tea", tags: ["earl grey", "bergamot", "citrus"], rating: 4.2, img: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=800&auto=format&fit=crop", desc: "Silky cold-brewed Earl Grey over ice." },
-] as const;
+import type { User } from "@supabase/supabase-js";
+import ExplorePage from "../pages/ExplorePage";
+import BevinPage from "../pages/BevinPage";
+import SearchPage from "../pages/SearchPage";
+import NetworkPage from "../pages/NetworkPage";
+import ProfilePage from "../pages/ProfilePage";
+import { supabase } from "../lib/supabase";
 
 /* -------------------- nav + prefs -------------------- */
 const Tab = { Explore: "Explore", Bevin: "Bevin", Search: "Search", Network: "Network", Profile: "Profile" } as const;
@@ -120,9 +105,9 @@ export default function BevyApp() {
                     {screen === "home" && (
                         <>
                             {tab === Tab.Explore && <ExplorePage compact={compactCards} />}
-                            {tab === Tab.Bevin && <Placeholder>✨ Bevin page</Placeholder>}
-                            {tab === Tab.Search && <Placeholder>🔍 Search page</Placeholder>}
-                            {tab === Tab.Network && <Placeholder>👥 Network page</Placeholder>}
+                            {tab === Tab.Bevin && <BevinPage />}
+                            {tab === Tab.Search && <SearchPage />}
+                            {tab === Tab.Network && <NetworkPage />}
                             {tab === Tab.Profile && (
                                 <ProfilePage
                                     user={user}
@@ -260,21 +245,7 @@ function SettingsPage({ theme, setTheme, density, setDensity, reduceMotion, setR
     );
 }
 
-/* -------------------- Explore page with cards -------------------- */
-function ExplorePage({ compact }: { compact: boolean }) {
-    return (
-        <section>
-            <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-2">
-                {[{ t: "coffee", emoji: "☕️" }, { t: "tea", emoji: "🫖" }, { t: "refresher", emoji: "🧊" }, { t: "alcohol", emoji: "🍹" }].map((c) => (
-                    <span key={c.t} className="shrink-0 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-3 py-1.5 text-xs shadow-sm">{c.emoji} {c.t}</span>
-                ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-                {drinksCatalog.map((d) => (<DrinkCard key={d.id} d={d} compact={compact} />))}
-            </div>
-        </section>
-    );
-}
+/* Explore page moved to src/pages/ExplorePage.tsx */
 
 /* -------------------- UI primitives -------------------- */
 function Card({ children }: { children: React.ReactNode }) { return <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 shadow-sm">{children}</div>; }
@@ -303,27 +274,7 @@ function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange
 }
 
 /* -------------------- components -------------------- */
-function DrinkCard({ d, compact }: { d: (typeof drinksCatalog)[number]; compact?: boolean; }) {
-    return (
-        <div className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <div className="relative">
-                <div className={`w-full ${compact ? "aspect-[4/3]" : "aspect-[3/2]"}`}>
-                    <img src={d.img} alt={d.name} loading="lazy" className="w-full h-full object-cover" />
-                </div>
-                <div className="absolute top-2 right-2 rounded-full bg-white/90 dark:bg-neutral-900/80 px-2 py-0.5 text-[10px] font-semibold shadow">{d.rating}★</div>
-            </div>
-            <div className="p-3">
-                <div className="text-sm font-semibold leading-tight line-clamp-1">{d.name}</div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1">{d.brand} • {d.type}</div>
-                {!compact && (<p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300 line-clamp-2">{d.desc}</p>)}
-                <div className="mt-2 flex flex-wrap gap-1">
-                    {d.tags.slice(0, 3).map((t) => (<span key={t} className="rounded-full bg-neutral-100 dark:bg-neutral-800 text-[10px] px-2 py-0.5">{t}</span>))}
-                </div>
-                <button className="mt-2 w-full rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs py-3 active:scale-95" style={{ minHeight: 44 }} onClick={() => alert(`(demo) Rate ${d.name}`)}>Rate this</button>
-            </div>
-        </div>
-    );
-}
+/* DrinkCard moved to src/shared/DrinkCard.tsx */
 function TabButton({ label, icon, active, onClick }: { label: string; icon: React.ReactNode; active?: boolean; onClick?: () => void; }) {
     return (
         <button onClick={onClick} aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1 py-2 ${active ? "text-neutral-900 dark:text-white" : "text-neutral-400 dark:text-neutral-500"}`} style={{ minHeight: 54 }}>
@@ -379,232 +330,10 @@ function MenuItem({ icon, label, onClick, destructive }: { icon: React.ReactNode
         </button>
     );
 }
-function ProfilePage({
-    user,
-    onRequestAuth,
-}: {
-    user: User | null;
-    onRequestAuth: () => void;
-}) {
-    const [loading, setLoading] = useState(false);
-    const [supported, setSupported] = useState(true); // whether profiles table exists
-    const [handle, setHandle] = useState("");
-    const [bio, setBio] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState("");
-    const [saving, setSaving] = useState(false);
-    const [copied, setCopied] = useState(false);
-
-    // Load optional profile row if table exists
-    useEffect(() => {
-        if (!user || !supabase) return;
-        (async () => {
-            setLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from("profiles")
-                    .select("handle,bio,avatar_url")
-                    .eq("id", user.id)
-                    .single();
-
-                if (error) {
-                    // Table missing or other error — keep basic auth info only
-                    // Postgres "undefined_table" is 42P01; handle gracefully either way.
-                    setSupported(false);
-                } else if (data) {
-                    setHandle(data.handle ?? "");
-                    setBio(data.bio ?? "");
-                    setAvatarUrl(data.avatar_url ?? "");
-                }
-            } catch {
-                setSupported(false);
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, [user]);
-
-    if (!user) {
-        return (
-            <Card>
-                <h3 className="text-sm font-semibold mb-1">You’re not signed in</h3>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    Sign in to view your profile and preferences.
-                </p>
-                <div className="mt-3">
-                    <button
-                        onClick={onRequestAuth}
-                        className="rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-3 py-2 text-sm"
-                    >
-                        Log in / Sign up
-                    </button>
-                </div>
-            </Card>
-        );
-    }
-
-    const initials =
-        (user.user_metadata?.full_name as string | undefined)?.trim()?.slice(0, 1)?.toUpperCase() ||
-        (user.email?.slice(0, 1).toUpperCase() ?? "U");
-
-    async function copyId() {
-        if (!user) return;
-        try {
-            await navigator.clipboard.writeText(user.id);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
-        } catch { }
-    }
-
-    async function saveProfile() {
-        if (!supabase || !user) return;
-        setSaving(true);
-        try {
-            const { error } = await supabase.from("profiles").upsert({
-                id: user.id,
-                handle: handle || null,
-                bio: bio || null,
-                avatar_url: avatarUrl || null,
-            });
-            if (error) alert(error.message);
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    async function signOut() {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signOut();
-        if (error) alert(error.message);
-    }
-
-    return (
-        <section className="space-y-4">
-            {/* Auth info (always available) */}
-            <Card>
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-neutral-100 dark:bg-neutral-800 grid place-items-center">
-                        {avatarUrl ? (
-                            <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="text-sm font-semibold">{initials}</span>
-                        )}
-                    </div>
-                    <div className="min-w-0">
-                        <div className="text-sm font-semibold leading-tight truncate">
-                            {user.email ?? "User"}
-                        </div>
-                        <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                            {formatIsoDate(user.created_at)} · joined
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 gap-2">
-                    <div className="flex items-center justify-between rounded-xl border border-neutral-200 dark:border-neutral-800 px-3 py-2">
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">User ID</span>
-                        <button onClick={copyId} className="text-xs font-mono truncate max-w-[60%]" title={user.id}>
-                            {shorten(user.id)}
-                        </button>
-                    </div>
-                    {copied && (
-                        <div className="text-xs text-emerald-600 dark:text-emerald-400">Copied ID</div>
-                    )}
-                </div>
-            </Card>
-
-            {/* Optional profile fields (only if `profiles` table exists) */}
-            <Card>
-                <h3 className="text-sm font-semibold mb-2">Profile</h3>
-                {!supported ? (
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        Profiles table not found. (Optional) Create it in Supabase to store a handle, bio, and avatar URL.
-                    </p>
-                ) : loading ? (
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">Loading…</p>
-                ) : (
-                    <div className="grid gap-2">
-                        <LabeledInput label="Handle">
-                            <input
-                                value={handle}
-                                onChange={(e) => setHandle(e.target.value)}
-                                placeholder="@yourname"
-                                className="w-full rounded-lg bg-transparent outline-none"
-                            />
-                        </LabeledInput>
-
-                        <LabeledInput label="Bio">
-                            <textarea
-                                value={bio}
-                                onChange={(e) => setBio(e.target.value)}
-                                placeholder="Tell people what you like to drink…"
-                                rows={3}
-                                className="w-full resize-none rounded-lg bg-transparent outline-none"
-                            />
-                        </LabeledInput>
-
-                        <LabeledInput label="Avatar URL">
-                            <input
-                                value={avatarUrl}
-                                onChange={(e) => setAvatarUrl(e.target.value)}
-                                placeholder="https://…"
-                                className="w-full rounded-lg bg-transparent outline-none"
-                            />
-                        </LabeledInput>
-
-                        <div className="pt-1">
-                            <button
-                                onClick={saveProfile}
-                                disabled={saving}
-                                className="rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-3 py-2 text-sm disabled:opacity-60"
-                            >
-                                {saving ? "Saving…" : "Save profile"}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </Card>
-
-            {/* Account actions */}
-            <Card>
-                <h3 className="text-sm font-semibold mb-2">Account</h3>
-                <button
-                    onClick={signOut}
-                    className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 px-3 py-3 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-[0.99]"
-                >
-                    Sign out
-                </button>
-            </Card>
-        </section>
-    );
-}
+/* Profile page moved to src/pages/ProfilePage.tsx */
 
 /* small helpers */
-function LabeledInput({
-    label,
-    children,
-}: {
-    label: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <label className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 block">
-            <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-1">{label}</div>
-            {children}
-        </label>
-    );
-}
-function shorten(id: string) {
-    return id.length > 14 ? `${id.slice(0, 6)}…${id.slice(-6)}` : id;
-}
-function formatIsoDate(iso?: string) {
-    if (!iso) return "—";
-    try {
-        const d = new Date(iso);
-        return d.toLocaleDateString();
-    } catch {
-        return iso;
-    }
-}
+/* Helpers moved to ProfilePage and shared modules */
 
 /* -------------------- icons -------------------- */
 function CompassIcon({ className = "w-5 h-5" }) { return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}><circle cx="12" cy="12" r="10" /><path d="M16 8l-4 8-4-4 8-4z" /></svg>); }
@@ -620,4 +349,4 @@ function ArrowLeftIcon({ className = "w-5 h-5" }) { return (<svg viewBox="0 0 24
 function SunIcon({ className = "w-5 h-5" }) { return (<svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" className={className}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>); }
 function MoonIcon({ className = "w-5 h-5" }) { return (<svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" className={className}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" /></svg>); }
 function LaptopIcon({ className = "w-5 h-5" }) { return (<svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" className={className}><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M2 20h20" /></svg>); }
-function Placeholder({ children }: { children: React.ReactNode }) { return (<div className="min-h-[50vh] grid place-items-center text-neutral-500 dark:text-neutral-400">{children}</div>); }
+/* Placeholder moved to pages where needed; removed unused local Placeholder component */
