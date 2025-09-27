@@ -1,26 +1,11 @@
-<!-- index.html -->
 <!doctype html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>bevy</title>
 </head>
-
-<script>
-    (function () {
-        try {
-            var saved = localStorage.getItem("bevy:prefs");
-            var p = saved ? JSON.parse(saved) : {};
-            var t = p.theme || "system";
-            var mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
-            var wantsDark = t === "dark" || (t === "system" && mq && mq.matches);
-            document.documentElement.classList.toggle("dark", !!wantsDark);
-            document.documentElement.style.colorScheme = wantsDark ? "dark" : "light";
-        } catch { }
-    })();
-</script>
 
 <body>
     <div id="root"></div>

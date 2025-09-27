@@ -1,6 +1,6 @@
 // src/tags.ts
 
-export type Category = "coffee" | "tea" | "refresher" | "energy" | "ale";
+export type Category = "coffee" | "tea" | "refresher" | "energy";
 export type TagSlug = string;
 
 export type Facet = {
@@ -25,7 +25,7 @@ export const TAG_FACETS: Facet[] = [
   {
     id: "sweetness",
     label: "Sweetness",
-    appliesTo: ["coffee", "tea", "refresher", "energy", "ale"],
+    appliesTo: ["coffee", "tea", "refresher", "energy"],
     options: [
       { value: "sweet", label: "Sweet" },
       { value: "more-sweet", label: "More Sweet" },
@@ -36,7 +36,7 @@ export const TAG_FACETS: Facet[] = [
   {
     id: "flavor",
     label: "Flavor Notes",
-    appliesTo: ["coffee", "tea", "refresher", "energy", "ale"],
+    appliesTo: ["coffee", "tea", "refresher", "energy"],
     options: [
       { value: "chocolate", label: "Chocolate" },
       { value: "caramel", label: "Caramel" },
@@ -68,7 +68,7 @@ export const TAG_FACETS: Facet[] = [
   {
     id: "dietary",
     label: "Dietary",
-    appliesTo: ["coffee", "tea", "refresher", "energy", "ale"],
+    appliesTo: ["coffee", "tea", "refresher", "energy"],
     options: [
       { value: "dairy-free", label: "Dairy-free" },
       { value: "vegan", label: "Vegan" },
@@ -396,27 +396,6 @@ export const TAG_FACETS: Facet[] = [
     ],
   },
 
-  /* ---------- ale-only ---------- */
-  {
-    id: "ale-style",
-    label: "Ale Style",
-    appliesTo: ["ale"],
-    options: [
-      { value: "pale-ale", label: "Pale Ale" },
-      { value: "ipa", label: "IPA" },
-      { value: "double-ipa", label: "Double IPA" },
-      { value: "session-ipa", label: "Session IPA" },
-      { value: "amber-ale", label: "Amber Ale" },
-      { value: "brown-ale", label: "Brown Ale" },
-      { value: "wheat-ale", label: "Wheat Ale" },
-      { value: "belgian-ale", label: "Belgian Ale" },
-      { value: "saison", label: "Saison" },
-      { value: "sour-ale", label: "Sour Ale" },
-      { value: "stout", label: "Stout" },
-      { value: "porter", label: "Porter" },
-      { value: "hefeweizen", label: "Hefeweizen" },
-    ],
-  },
 ] as const;
 
 /* flat unique list of all tag slugs */
