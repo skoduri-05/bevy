@@ -3,19 +3,7 @@ import cubeGif from "../assets/bevin-cube.gif";
 import "./bevin.css";
 import { supabase } from "../lib/supabase";
 
-function stripMarkdown(text: string) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "$1")     // bold
-    .replace(/\*(.*?)\*/g, "$1")         // italic
-    .replace(/`(.*?)`/g, "$1")           // inline code
-    .replace(/\[(.*?)\]\(.*?\)/g, "$1")  // links [text](url) → text
-    .replace(/[#>*_~]/g, "")             // leftover markdown chars
-    .trim();
-}
-
-/** =========================
- *  Types
- *  ========================= */
+/* ---------- Types ---------- */
 type ChatPick = {
   i: number;
   uuid: string;
@@ -38,11 +26,20 @@ type ChatResponse = {
   detail?: string;
 };
 
-/** Prefer env vars; fall back to localhost for dev */
-const API_BASE =
-  (import.meta as any)?.env?.VITE_API_BASE ||
-  (window as any)?.NEXT_PUBLIC_API_BASE ||
-  "http://localhost:3000";
+/* ---------- Helpers ---------- */
+function stripMarkdown(text: string) {
+  return (text || "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")     // bold
+    .replace(/\*(.*?)\*/g, "$1")         // italic
+    .replace(/`(.*?)`/g, "$1")           // inline code
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")  // links
+    .replace(/[#>*_~]/g, "")             // leftover symbols
+    .replace(/\s+\n/g, "\n")
+    .trim();
+}
+
+/** In serverless on Vercel, just call /api directly (no CORS needed) */
+const API_BASE = "/api";
 
 export default function Bevin() {
   const [firstName, setFirstName] = useState<string>("there");
@@ -54,34 +51,27 @@ export default function Bevin() {
   const [err, setErr] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  /** Auto-scroll to latest message/picks */
+  /* Auto-scroll */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, picks, loading]);
 
-  /** Fetch first name from Supabase profile (if signed in) */
+  /* Optional: greet by first name if logged in */
   useEffect(() => {
     (async () => {
       try {
         const { data: auth } = await supabase.auth.getUser();
         const id = auth?.user?.id;
         if (!id) return;
-        const { data } = await supabase
-          .from("profiles")
-          .select("name")
-          .eq("id", id)
-          .maybeSingle();
-        if (data?.name) {
-          const fst = data.name.split(" ")[0];
-          setFirstName(fst);
-        }
+        const { data } = await supabase.from("profiles").select("name").eq("id", id).maybeSingle();
+        if (data?.name) setFirstName(data.name.split(" ")[0]);
       } catch {
-        // ignore profile errors for chat UX
+        /* ignore profile errors for chat UX */
       }
     })();
   }, []);
 
-  /** Send message to backend /chat */
+  /* Submit → call /api/chat */
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
     const question = input.trim();
@@ -101,14 +91,13 @@ export default function Bevin() {
         body: JSON.stringify({ message: question }),
       });
 
-      // server returns 200 even on internal errors; always parse JSON
       const data: ChatResponse = await res.json();
 
       setMessages((prev) => [
-  ...prev,
-  { role: "bot", text: stripMarkdown(data.message || "Hmm, no reply.") },
-]);
-      setPicks(data.picks || []);
+        ...prev,
+        { role: "bot", text: stripMarkdown(data.message || "Hmm, no reply.") },
+      ]);
+      setPicks(Array.isArray(data.picks) ? data.picks : []);
       if (data.error) setErr(data.detail || data.error);
     } catch (e: any) {
       setErr(e?.message || "Network error");
@@ -142,9 +131,7 @@ export default function Bevin() {
               <div
                 key={i}
                 className={`max-w-[80%] px-3 py-2 rounded-xl ${
-                  m.role === "user"
-                    ? "ml-auto bg-[#9F90FF] text-white"
-                    : "mr-auto bg-white/10 text-white"
+                  m.role === "user" ? "ml-auto bg-[#9F90FF] text-white" : "mr-auto bg-white/10 text-white"
                 }`}
               >
                 {m.text}
@@ -157,18 +144,14 @@ export default function Bevin() {
               </div>
             )}
 
-            {/* Optional: render returned picks as cards */}
+            {/* Picks (cards) */}
             {picks.length > 0 && (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {picks.map((p) => (
                   <div key={p.uuid} className="rounded-xl bg-white/5 p-3 text-white">
                     <div className="flex gap-3">
                       {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt={p.name}
-                          className="h-16 w-16 rounded-lg object-cover"
-                        />
+                        <img src={p.image_url} alt={p.name} className="h-16 w-16 rounded-lg object-cover" />
                       ) : (
                         <div className="h-16 w-16 rounded-lg bg-white/10" />
                       )}
@@ -177,16 +160,19 @@ export default function Bevin() {
                         <div className="text-sm opacity-80">
                           ${p.price?.toFixed?.(2) ?? p.price} · ★{p.rating} ({p.rating_count})
                         </div>
-                        {p.location && (
-                          <div className="text-xs opacity-70">{p.location}</div>
-                        )}
+                        {p.location && <div className="text-xs opacity-70">{p.location}</div>}
                       </div>
                     </div>
+
+                    {/* In case recipe/thoughts contain markdown from DB, strip it too */}
                     {p.recipe && (
                       <div className="mt-2 text-sm opacity-90">
                         <span className="opacity-70">Recipe: </span>
-                        {p.recipe}
+                        {stripMarkdown(p.recipe)}
                       </div>
+                    )}
+                    {p.thoughts && (
+                      <div className="mt-1 text-xs opacity-70">{stripMarkdown(p.thoughts)}</div>
                     )}
                   </div>
                 ))}
@@ -200,7 +186,7 @@ export default function Bevin() {
         )}
       </div>
 
-      {/* composer */}
+      {/* Composer */}
       <form className="bevin-composer" onSubmit={sendMessage}>
         <div className="bevin-inputwrap">
           <input
