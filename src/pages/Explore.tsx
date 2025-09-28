@@ -3,12 +3,13 @@ import { supabase } from "../lib/supabase";
 import type { Recipe } from "../types/db";
 import SwipeCard from "../components/SwipeCard";
 import { useWishlist } from "../store/useWishlist";
+import { useExploreProgress } from "../store/useExploreProgress";
 import { Heart, X } from "lucide-react";
 
 export default function Explore() {
   const [cards, setCards] = useState<Recipe[]>([]);
-  const [stack, setStack] = useState<string[]>([]);
   const wishlist = useWishlist();
+  const { stack, setStack, removeFromStack } = useExploreProgress();
 
   // fetch recipes
   useEffect(() => {
@@ -22,16 +23,18 @@ export default function Explore() {
         console.error("Error fetching recipes:", error);
         return;
       }
-      setCards((data as Recipe[]) ?? []);
+
+      const fetched = (data as Recipe[]) ?? [];
+      setCards(fetched);
+
+      // only initialize stack if it’s empty
+      if (stack.length === 0) {
+        setStack(fetched.map((c) => c.uuid));
+      }
     })();
-  }, []);
+  }, [setStack, stack.length]);
 
-  // keep stack in sync with cards
-  useEffect(() => {
-    setStack(cards.map((c) => c.uuid));
-  }, [cards]);
-
-  // get top card (only one displayed)
+  // get top card
   const topCard = cards.find((c) => c.uuid === stack[0]);
 
   // swipe handler
@@ -45,11 +48,10 @@ export default function Explore() {
       console.log("Swiping card uuid:", id, "direction:", dir);
 
       // remove from stack
-      setStack((s) => s.filter((x) => x !== id));
+      removeFromStack(id);
 
       if (dir === "right") {
         try {
-          // current logged-in user
           const {
             data: { user },
             error: userErr,
@@ -60,7 +62,6 @@ export default function Explore() {
             return;
           }
 
-          // fetch current wishlist
           const { data: profile, error: profileErr } = await supabase
             .from("profiles")
             .select("wishlist")
@@ -75,7 +76,6 @@ export default function Explore() {
           const currentWishlist: string[] =
             (profile?.wishlist as string[]) ?? [];
 
-          // avoid duplicates
           if (currentWishlist.includes(id)) {
             console.log("Recipe already in wishlist:", id);
             wishlist.add(id);
@@ -100,7 +100,7 @@ export default function Explore() {
         }
       }
     },
-    [wishlist]
+    [wishlist, removeFromStack]
   );
 
   return (
