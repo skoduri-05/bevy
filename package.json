@@ -4,14 +4,14 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-    "api": "node src/backend/server.js",
-    "api:dev": "node src/backend/server.js",
-    "dev": "vite --host",
-    "dev:all": "concurrently -n \"WEB,API\" -c \"cyan.bold,magenta.bold\" \"npm:dev\" \"npm:api\"",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "start": "node server.js"
-  },
+        "api": "node src/backend/server.js",
+        "api:dev": "node src/backend/server.js",
+        "dev": "vite --host",
+        "dev:all": "concurrently -n \"WEB,API\" -c \"cyan.bold,magenta.bold\" \"npm:dev\" \"npm:api\"",
+        "build": "concurrently -n \"WEB,API\" -c \"cyan.bold,magenta.bold\" \"npm:dev\" \"npm:api\"",
+        "preview": "vite preview",
+        "start": "node server.js"
+    },
     "dependencies": {
         "@radix-ui/react-slot": "^1.2.3",
         "@supabase/supabase-js": "^2.58.0",
@@ -36,6 +36,7 @@
         "@types/react-dom": "^19.1.9",
         "@vitejs/plugin-react": "^5.0.3",
         "autoprefixer": "^10.4.21",
+        "concurrently": "^9.2.1",
         "eslint": "^9.36.0",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
