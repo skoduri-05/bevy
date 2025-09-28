@@ -7,150 +7,149 @@ import { useExploreProgress } from "../store/useExploreProgress";
 import { Heart, X } from "lucide-react";
 
 export default function Explore() {
-  const [cards, setCards] = useState<Recipe[]>([]);
-  const wishlist = useWishlist();
-  const { stack, setStack, removeFromStack } = useExploreProgress();
+    const [cards, setCards] = useState<Recipe[]>([]);
+    const wishlist = useWishlist();
+    const { stack, setStack, removeFromStack } = useExploreProgress();
 
-  // fetch recipes
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("recipes")
-        .select("*")
-        .order("universal_rating", { ascending: false });
+    // fetch recipes
+    useEffect(() => {
+        (async () => {
+            const { data, error } = await supabase
+                .from("recipes")
+                .select("*")
+                .order("universal_rating", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching recipes:", error);
-        return;
-      }
+            if (error) {
+                console.error("Error fetching recipes:", error);
+                return;
+            }
 
-      const fetched = (data as Recipe[]) ?? [];
-      setCards(fetched);
+            const fetched = (data as Recipe[]) ?? [];
+            setCards(fetched);
 
-      // only initialize stack if it’s empty
-      if (stack.length === 0) {
-        setStack(fetched.map((c) => c.uuid));
-      }
-    })();
-  }, [setStack, stack.length]);
+            // only initialize stack if it’s empty
+            if (stack.length === 0) {
+                setStack(fetched.map((c) => c.uuid));
+            }
+        })();
+    }, [setStack, stack.length]);
 
-  // get top card
-  const topCard = cards.find((c) => c.uuid === stack[0]);
+    // get top card
+    const topCard = cards.find((c) => c.uuid === stack[0]);
 
-  // swipe handler
-  const swipe = useCallback(
-    async (id?: string, dir?: "left" | "right") => {
-      if (!id) {
-        console.warn("swipe called without id");
-        return;
-      }
+    // swipe handler
+    const swipe = useCallback(
+        async (id?: string, dir?: "left" | "right") => {
+            if (!id) {
+                console.warn("swipe called without id");
+                return;
+            }
 
-      console.log("Swiping card uuid:", id, "direction:", dir);
+            console.log("Swiping card uuid:", id, "direction:", dir);
 
-      // remove from stack
-      removeFromStack(id);
+            // remove from stack
+            removeFromStack(id);
 
-      if (dir === "right") {
-        try {
-          const {
-            data: { user },
-            error: userErr,
-          } = await supabase.auth.getUser();
+            if (dir === "right") {
+                try {
+                    const {
+                        data: { user },
+                        error: userErr,
+                    } = await supabase.auth.getUser();
 
-          if (userErr || !user) {
-            console.error("No authenticated user:", userErr);
-            return;
-          }
+                    if (userErr || !user) {
+                        console.error("No authenticated user:", userErr);
+                        return;
+                    }
 
-          const { data: profile, error: profileErr } = await supabase
-            .from("profiles")
-            .select("wishlist")
-            .eq("id", user.id)
-            .single();
+                    const { data: profile, error: profileErr } = await supabase
+                        .from("profiles")
+                        .select("wishlist")
+                        .eq("id", user.id)
+                        .single();
 
-          if (profileErr) {
-            console.error("Error fetching profile wishlist:", profileErr);
-            return;
-          }
+                    if (profileErr) {
+                        console.error("Error fetching profile wishlist:", profileErr);
+                        return;
+                    }
 
-          const currentWishlist: string[] =
-            (profile?.wishlist as string[]) ?? [];
+                    const currentWishlist: string[] =
+                        (profile?.wishlist as string[]) ?? [];
 
-          if (currentWishlist.includes(id)) {
-            console.log("Recipe already in wishlist:", id);
-            wishlist.add(id);
-            return;
-          }
+                    if (currentWishlist.includes(id)) {
+                        console.log("Recipe already in wishlist:", id);
+                        wishlist.add(id);
+                        return;
+                    }
 
-          const newWishlist = [...currentWishlist, id];
+                    const newWishlist = [...currentWishlist, id];
 
-          const { error: updateError } = await supabase
-            .from("profiles")
-            .update({ wishlist: newWishlist })
-            .eq("id", user.id);
+                    const { error: updateError } = await supabase
+                        .from("profiles")
+                        .update({ wishlist: newWishlist })
+                        .eq("id", user.id);
 
-          if (updateError) {
-            console.error("Error updating wishlist:", updateError);
-          } else {
-            console.log("Wishlist updated with id:", id);
-            wishlist.add(id);
-          }
-        } catch (err) {
-          console.error("Unexpected swipe error:", err);
-        }
-      }
-    },
-    [wishlist, removeFromStack]
-  );
+                    if (updateError) {
+                        console.error("Error updating wishlist:", updateError);
+                    } else {
+                        console.log("Wishlist updated with id:", id);
+                        wishlist.add(id);
+                    }
+                } catch (err) {
+                    console.error("Unexpected swipe error:", err);
+                }
+            }
+        },
+        [wishlist, removeFromStack]
+    );
 
-  return (
-    <div className="px-3 pb-24">
-      <div className="relative h-[70vh] mt-1 flex items-center justify-center">
-        {topCard ? (
-          <SwipeCard
-            key={topCard.uuid}
-            card={topCard}
-            onSwipeLeft={(id) => swipe(id, "left")}
-            onSwipeRight={(id) => swipe(id, "right")}
-          />
-        ) : (
-          <div className="text-center text-zinc-400 text-lg">
-            Gone through all drinks in database
-          </div>
-        )}
-      </div>
+    return (
+        <div className="px-3 pb-24">
+            <div className="relative h-[70vh] mt-1 flex items-center justify-center">
+                {topCard ? (
+                    <SwipeCard
+                        key={topCard.uuid}
+                        card={topCard}
+                        onSwipeLeft={(id) => { swipe(id, "left"); }}
+                        onSwipeRight={(id) => { swipe(id, "right"); }}
+                    />
+                ) : (
+                    <div className="text-center text-zinc-400 text-lg">
+                        Gone through all drinks in database
+                    </div>
+                )}
+            </div>
 
-      {topCard && (
-        <div className="mt-4 flex items-center justify-center gap-8">
-          <RoundBtn onClick={() => swipe(topCard.uuid, "left")}>
-            <X className="h-5 w-5" />
-          </RoundBtn>
-          <RoundBtn glow onClick={() => swipe(topCard.uuid, "right")}>
-            <Heart className="h-5 w-5" />
-          </RoundBtn>
+            {topCard && (
+                <div className="mt-4 flex items-center justify-center gap-8">
+                    <RoundBtn onClick={() => swipe(topCard.uuid, "left")}>
+                        <X className="h-5 w-5" />
+                    </RoundBtn>
+                    <RoundBtn glow onClick={() => swipe(topCard.uuid, "right")}>
+                        <Heart className="h-5 w-5" />
+                    </RoundBtn>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
 
 function RoundBtn({
-  children,
-  glow,
-  onClick,
+    children,
+    glow,
+    onClick,
 }: {
-  children: React.ReactNode;
-  glow?: boolean;
-  onClick?: () => void;
+    children: React.ReactNode;
+    glow?: boolean;
+    onClick?: () => void;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`h-14 w-14 rounded-full grid place-items-center border border-[color:theme(colors.bevy.stroke)] bg-bevy-chip backdrop-blur ${
-        glow ? "shadow-glow" : ""
-      }`}
-    >
-      {children}
-    </button>
-  );
+    return (
+        <button
+            onClick={onClick}
+            className={`h-14 w-14 rounded-full grid place-items-center border border-[color:theme(colors.bevy.stroke)] bg-bevy-chip backdrop-blur ${glow ? "shadow-glow" : ""
+                }`}
+        >
+            {children}
+        </button>
+    );
 }

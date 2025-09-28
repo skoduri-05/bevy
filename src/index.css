@@ -33,8 +33,16 @@ body,
 @layer base {
     body {
         @apply text-white;
-        background-color: theme('colors.bevy.bg');
+        background: radial-gradient(120% 60% at 50% 0%,
+                #0F1220 0%,
+                #05060B 100%);
+        background-attachment: fixed;
+        overflow-x: hidden;
     }
+}
+
+#root {
+    position: relative;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -58,4 +66,17 @@ body,
     .bevy-panel {
         @apply bg-bevy-panel/95 backdrop-blur border border-[color:theme(colors.bevy.stroke)];
     }
+}
+
+/* make any inlined SVG inherit currentColor */
+.tint-icon svg,
+.tint-icon svg * {
+    fill: currentColor !important;
+    stroke: currentColor !important;
+}
+
+.tint-icon svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
 }
