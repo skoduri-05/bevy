@@ -3,103 +3,221 @@ import cubeGif from "../assets/bevin-cube.gif";
 import "./bevin.css";
 import { supabase } from "../lib/supabase";
 
+function stripMarkdown(text: string) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")     // bold
+    .replace(/\*(.*?)\*/g, "$1")         // italic
+    .replace(/`(.*?)`/g, "$1")           // inline code
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")  // links [text](url) → text
+    .replace(/[#>*_~]/g, "")             // leftover markdown chars
+    .trim();
+}
+
+/** =========================
+ *  Types
+ *  ========================= */
+type ChatPick = {
+  i: number;
+  uuid: string;
+  name: string;
+  price: number;
+  rating: number;
+  rating_count: number;
+  tags: string[] | null;
+  location: string | null;
+  thoughts: string | null;
+  recipe: string | null;
+  image_url: string | null;
+};
+
+type ChatResponse = {
+  message: string;
+  picks: ChatPick[];
+  raw?: { count: number };
+  error?: string;
+  detail?: string;
+};
+
+/** Prefer env vars; fall back to localhost for dev */
+const API_BASE =
+  (import.meta as any)?.env?.VITE_API_BASE ||
+  (window as any)?.NEXT_PUBLIC_API_BASE ||
+  "http://localhost:3000";
+
 export default function Bevin() {
-    const [firstName, setFirstName] = useState<string>("there");
-    const [input, setInput] = useState("");
-    const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
-    const [introVisible, setIntroVisible] = useState(true);
-    const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [firstName, setFirstName] = useState<string>("there");
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
+  const [introVisible, setIntroVisible] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [picks, setPicks] = useState<ChatPick[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+  /** Auto-scroll to latest message/picks */
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, picks, loading]);
 
-    useEffect(() => {
-        (async () => {
-            const { data: auth } = await supabase.auth.getUser();
-            const id = auth?.user?.id;
-            if (!id) return;
-            const { data } = await supabase
-                .from("profiles")
-                .select("name")
-                .eq("id", id)
-                .maybeSingle();
-            if (data?.name) {
-                const fst = data.name.split(" ")[0];
-                setFirstName(fst);
-            }
-        })();
-    }, []);
+  /** Fetch first name from Supabase profile (if signed in) */
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const id = auth?.user?.id;
+        if (!id) return;
+        const { data } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", id)
+          .maybeSingle();
+        if (data?.name) {
+          const fst = data.name.split(" ")[0];
+          setFirstName(fst);
+        }
+      } catch {
+        // ignore profile errors for chat UX
+      }
+    })();
+  }, []);
 
-    const sendMessage = (e: FormEvent) => {
-        e.preventDefault();
-        if (!input.trim()) return;
+  /** Send message to backend /chat */
+  const sendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    const question = input.trim();
+    if (!question) return;
 
-        // add user message
-        setMessages((prev) => [...prev, { role: "user", text: input }]);
-        setIntroVisible(false);
+    // optimistic UI
+    setMessages((prev) => [...prev, { role: "user", text: question }]);
+    setIntroVisible(false);
+    setLoading(true);
+    setErr(null);
+    setInput("");
 
-        // TODO: replace with CedarOS call
-        setTimeout(() => {
-            setMessages((prev) => [...prev, { role: "bot", text: "✨ Response from Bevin ✨" }]);
-        }, 800);
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: question }),
+      });
 
-        setInput("");
-    };
+      // server returns 200 even on internal errors; always parse JSON
+      const data: ChatResponse = await res.json();
 
-    return (
-        <div className="bevin-screen">
+      setMessages((prev) => [
+  ...prev,
+  { role: "bot", text: stripMarkdown(data.message || "Hmm, no reply.") },
+]);
+      setPicks(data.picks || []);
+      if (data.error) setErr(data.detail || data.error);
+    } catch (e: any) {
+      setErr(e?.message || "Network error");
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", text: "Whoops—I hit a snag. Try again in a moment." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            <div className="bevin-chat-area">
-                {messages.length === 0 && (
-                    <div className={`bevin-intro ${introVisible ? "" : "hide"}`}>
-                        <img src={cubeGif} alt="Bevin cube" className="bevin-cube" />
-                        <h1 className="bevin-title">
-                            Bevin here,
-                            <br />
-                            how can I help?
-                        </h1>
-                        <div className="bevin-subtitle">
+  return (
+    <div className="bevin-screen">
+      <div className="bevin-chat-area">
+        {messages.length === 0 && (
+          <div className={`bevin-intro ${introVisible ? "" : "hide"}`}>
+            <img src={cubeGif} alt="Bevin cube" className="bevin-cube" />
+            <h1 className="bevin-title">
+              Bevin here,
+              <br />
+              how can I help, {firstName}?
+            </h1>
+            <div className="bevin-subtitle" />
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="bevin-history-inner">
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                className={`max-w-[80%] px-3 py-2 rounded-xl ${
+                  m.role === "user"
+                    ? "ml-auto bg-[#9F90FF] text-white"
+                    : "mr-auto bg-white/10 text-white"
+                }`}
+              >
+                {m.text}
+              </div>
+            ))}
+
+            {loading && (
+              <div className="mr-auto bg-white/10 text-white px-3 py-2 rounded-xl">
+                Thinking…
+              </div>
+            )}
+
+            {/* Optional: render returned picks as cards */}
+            {picks.length > 0 && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {picks.map((p) => (
+                  <div key={p.uuid} className="rounded-xl bg-white/5 p-3 text-white">
+                    <div className="flex gap-3">
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.name}
+                          className="h-16 w-16 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-lg bg-white/10" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold">{p.name}</div>
+                        <div className="text-sm opacity-80">
+                          ${p.price?.toFixed?.(2) ?? p.price} · ★{p.rating} ({p.rating_count})
                         </div>
+                        {p.location && (
+                          <div className="text-xs opacity-70">{p.location}</div>
+                        )}
+                      </div>
                     </div>
-                )}
+                    {p.recipe && (
+                      <div className="mt-2 text-sm opacity-90">
+                        <span className="opacity-70">Recipe: </span>
+                        {p.recipe}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-                {messages.length > 0 && (
-                    <div className="bevin-history-inner">
-                        {messages.map((m, i) => (
-                            <div
-                                key={i}
-                                className={`max-w-[80%] px-3 py-2 rounded-xl ${m.role === "user"
-                                    ? "ml-auto bg-[#9F90FF] text-white"
-                                    : "mr-auto bg-white/10 text-white"
-                                    }`}
-                            >
-                                {m.text}
-                            </div>
-                        ))}
-                        <div ref={bottomRef} />
-                    </div>
-                )}
-            </div>
+            {err && <div className="mt-3 text-xs text-red-300">{err}</div>}
 
-            {/* composer */}
-            <form className="bevin-composer" onSubmit={sendMessage}>
-                <div className="bevin-inputwrap">
-                    <input
-                        className="bevin-input"
-                        placeholder="Ask me Anything..."
-                        aria-label="Ask Bevin anything"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                    />
-                </div>
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
 
-                <button type="submit" className="bevin-send" aria-label="Send">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                        <path d="M3.4 20.6 22 12 3.4 3.4l2.8 7.2L16 12l-9.8 1.4-2.8 7.2Z" />
-                    </svg>
-                </button>
-            </form>
+      {/* composer */}
+      <form className="bevin-composer" onSubmit={sendMessage}>
+        <div className="bevin-inputwrap">
+          <input
+            className="bevin-input"
+            placeholder="Ask me anything… try 'citrus under $10'"
+            aria-label="Ask Bevin anything"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
         </div>
-    );
+
+        <button type="submit" className="bevin-send" aria-label="Send" disabled={loading}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+            <path d="M3.4 20.6 22 12 3.4 3.4l2.8 7.2L16 12l-9.8 1.4-2.8 7.2Z" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  );
 }
