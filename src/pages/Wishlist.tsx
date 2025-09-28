@@ -3,51 +3,87 @@ import { supabase } from "../lib/supabase";
 import type { Recipe } from "../types/db";
 import Thumb from "../components/Thumb";
 import { ALL_TAG_SLUGS } from "../data/tags";
-import { useWishlist } from "../store/useWishlist";
 
 export default function Wishlist() {
-  const { ids } = useWishlist();
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [drinks, setDrinks] = useState<Recipe[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagPopup, setShowTagPopup] = useState(false);
+  const [topThree, setTopThree] = useState<string[]>([]); // separate state
 
+  // fetch wishlist IDs from profile
   useEffect(() => {
     (async () => {
-      if (!ids.length) return setDrinks([]);
-      const { data } = await supabase
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
+      if (userErr || !user) {
+        console.error("No authenticated user:", userErr);
+        return;
+      }
+
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("wishlist, top_three")
+        .eq("id", user.id)
+        .single();
+
+      if (profileErr) {
+        console.error("Error fetching profile wishlist:", profileErr);
+        return;
+      }
+
+      setWishlistIds((profile?.wishlist as string[]) ?? []);
+      setTopThree((profile?.top_three as string[]) ?? []); // assumes you added a `top_three` field in profiles
+    })();
+  }, []);
+
+  // fetch recipe details for wishlist
+  useEffect(() => {
+    (async () => {
+      if (!wishlistIds.length) {
+        setDrinks([]);
+        return;
+      }
+      const { data, error } = await supabase
         .from("recipes")
         .select("*")
-        .in("uuid", ids);
+        .in("uuid", wishlistIds);
+
+      if (error) {
+        console.error("Error fetching wishlist recipes:", error);
+        return;
+      }
+
       setDrinks(data ?? []);
     })();
-  }, [ids]);
+  }, [wishlistIds]);
 
   const filteredDrinks =
     selectedTags.length > 0
-      ? drinks.filter((d) =>
-          selectedTags.every((t) => d.tags?.includes(t))
-        )
+      ? drinks.filter((d) => selectedTags.every((t) => d.tags?.includes(t)))
       : drinks;
 
   return (
     <div className="px-4 pb-24 relative">
       {/* search bar */}
-<div className="flex items-center gap-2">
-  <input
-    placeholder="Search through my wishlist…"
-    className="w-full bg-bevy-chip border border-[color:theme(colors.bevy.stroke)] rounded-2xl px-4 py-3 text-sm placeholder:text-zinc-500 focus:outline-none"
-  />
-  <button
-    className={`p-3 rounded-xl 
-      ${showTagPopup 
-        ? "bg-white text-black" // active state 
-        : "bg-brown-500 hover:bg-brown-500 text-white"} 
-      border border-[color:theme(colors.bevy.stroke)]`}
-    onClick={() => setShowTagPopup((prev) => !prev)}
-  >
-    ⚙️
-  </button>
-</div>
+      <div className="flex items-center gap-2">
+        <input
+          placeholder="Search through my wishlist…"
+          className="w-full bg-bevy-chip border border-[color:theme(colors.bevy.stroke)] rounded-2xl px-4 py-3 text-sm placeholder:text-zinc-500 focus:outline-none"
+        />
+        <button
+          className={`p-3 rounded-xl 
+            ${showTagPopup 
+              ? "bg-white text-black" 
+              : "bg-brown-500 hover:bg-brown-500 text-white"} 
+            border border-[color:theme(colors.bevy.stroke)]`}
+          onClick={() => setShowTagPopup((prev) => !prev)}
+        >
+          ⚙️
+        </button>
+      </div>
 
       {/* selected tag chips */}
       <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
@@ -69,12 +105,14 @@ export default function Wishlist() {
         ))}
       </div>
 
-      {/* top three */}
+      {/* top three (user-chosen only) */}
       <div className="mt-4 text-[10px] text-zinc-400">Top three</div>
       <div className="grid grid-cols-3 gap-3 mt-2">
-        {filteredDrinks.slice(0, 3).map((d) => (
-          <Thumb key={d.uuid} image={d.image_url} title={d.drink_name} />
-        ))}
+        {drinks
+          .filter((d) => topThree.includes(d.uuid))
+          .map((d) => (
+            <Thumb key={d.uuid} image={d.image_url} title={d.drink_name} />
+          ))}
       </div>
 
       {/* full wishlist */}
