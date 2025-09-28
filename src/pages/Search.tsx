@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import type { Recipe } from "../types/db";
-import { TAG_FACETS, ALL_TAG_SLUGS, type TagSlug } from "../data/tags";
+import { TAG_FACETS, type TagSlug } from "../data/tags";
 import TagChip from "../components/TagChip";
 import RecipeModal from "../components/RecipeModal";
 import { Heart } from "lucide-react";

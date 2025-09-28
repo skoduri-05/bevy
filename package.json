@@ -8,7 +8,7 @@
         "api:dev": "node src/backend/server.js",
         "dev": "vite --host",
         "dev:all": "concurrently -n \"WEB,API\" -c \"cyan.bold,magenta.bold\" \"npm:dev\" \"npm:api\"",
-        "build": "concurrently -n \"WEB,API\" -c \"cyan.bold,magenta.bold\" \"npm:dev\" \"npm:api\"",
+        "build": "tsc -b && vite build",
         "preview": "vite preview",
         "start": "node server.js"
     },
