@@ -27,7 +27,6 @@ type ChatPick = {
     recipe: string | null;
     image_url: string | null;
 };
-type ChatResponse = { message: string; picks: ChatPick[] };
 
 /* ---------- simple intent parser (client-side) ---------- */
 const TAG_SYNONYMS: Record<string, string[]> = {
@@ -35,63 +34,6 @@ const TAG_SYNONYMS: Record<string, string[]> = {
     citrus: ["citrus", "lemon", "lime", "orange", "grapefruit", "yuzu"],
     creamy: ["creamy", "milk-tea", "latte", "milk", "foam", "cold-foam"],
 };
-const ALL_TAG_WORDS = Array.from(
-    new Set(Object.values(TAG_SYNONYMS).flat())
-);
-
-function parseIntent(text: string) {
-    const msg = (text || "").toLowerCase();
-
-    // budget
-    let maxPrice: number | undefined;
-    const m = /(under|below|<=)?\s*\$?\s*(\d+(?:\.\d{1,2})?)/i.exec(msg);
-    if (m) maxPrice = Number(m[2]);
-
-    // min rating
-    let minRating: number | undefined;
-    const r = /(rating|star|stars)\s*(?:>=?|at least)?\s*(\d(?:\.\d)?)/i.exec(msg);
-    if (r) minRating = Number(r[2]);
-
-    // tag
-    let tag: string | undefined;
-    for (const t of ALL_TAG_WORDS) {
-        if (msg.includes(t)) {
-            // map specific word back to a synonym bucket if possible
-            const bucket = Object.entries(TAG_SYNONYMS).find(([, list]) => list.includes(t))?.[0];
-            tag = bucket || t;
-            break;
-        }
-    }
-
-    // free-text term for ilike
-    const term = msg.replace(/[^\w\s]/g, " ").trim();
-
-    const nearMe = /\bnear me\b/i.test(text);
-
-    return { maxPrice, minRating, tag, term, nearMe };
-}
-
-/* ---------- light client-side copywriter ---------- */
-function composeReply(q: ReturnType<typeof parseIntent>, rows: ChatPick[]): string {
-    if (!rows.length) {
-        return "I couldn't find a great match for that. Try adding a budget (e.g., under $8) and a vibe (tropical, citrus, creamy), or name a base (coffee/tea/fruit).";
-    }
-
-    const top = rows.slice(0, 3);
-    const vibe = q.tag ? ` for a ${q.tag} vibe` : "";
-    const budget = q.maxPrice ? ` under $${q.maxPrice}` : "";
-    const lead = `Here are ${top.length} picks${vibe}${budget}:`;
-
-    const lines = top.map((r) => {
-        const price = r.price != null ? `$${Number(r.price).toFixed(2)}` : "—";
-        const rating = r.rating != null ? `★${r.rating}` : "★—";
-        const where = r.location ? ` · ${r.location}` : "";
-        return `• ${r.name} (${price}, ${rating}${where})`;
-    });
-
-    const tip = `\n\nTip: ask “citrus under $10”, “creamy latte 4★+”, or “tropical near me”.`;
-    return [lead, ...lines].join("\n") + tip;
-}
 
 /* ---------- component ---------- */
 export default function Bevin() {
