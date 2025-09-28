@@ -28,19 +28,11 @@ type ChatPick = {
     image_url: string | null;
 };
 
-/* ---------- simple intent parser (client-side) ---------- */
-const TAG_SYNONYMS: Record<string, string[]> = {
-    tropical: ["tropical", "mango", "pineapple", "coconut", "lychee", "passionfruit", "guava", "peach"],
-    citrus: ["citrus", "lemon", "lime", "orange", "grapefruit", "yuzu"],
-    creamy: ["creamy", "milk-tea", "latte", "milk", "foam", "cold-foam"],
-};
-
 /* ---------- component ---------- */
 export default function Bevin() {
     const [firstName, setFirstName] = useState<string>("there");
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([]);
-    const [introVisible, setIntroVisible] = useState(true);
     const [loading, setLoading] = useState(false);
     const [picks, setPicks] = useState<ChatPick[]>([]);
     const [err, setErr] = useState<string | null>(null);
@@ -95,7 +87,7 @@ export default function Bevin() {
         <div className="bevin-screen">
             <div className="bevin-chat-area">
                 {messages.length === 0 && (
-                    <div className={`bevin-intro ${introVisible ? "" : "hide"}`}>
+                    <div className={`bevin-intro ${loading ? "bevin-intro-loading" : ""}`}>
                         <img src={cubeGif} alt="Bevin cube" className="bevin-cube" />
                         <h1 className="bevin-title">
                             Bevin here,
