@@ -99,7 +99,7 @@ export default function TopNav() {
                         className="text-lg"
                         style={{ fontFamily: "'Libre Bodoni', serif", fontWeight: 600, fontStyle: "italic" }}
                     >
-                        Bevi
+                        Bevy
                     </span>
                 </Link>
 
