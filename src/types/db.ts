@@ -15,6 +15,8 @@ avatar_url: string | null; // text
 updated_at: string | null; // timestamptz
 preferred_tags: string[] | null; // _text
 wishlist: UUID[] | null; // _uuid (array of recipe uuids)
+posts: string[] | null;
+post_counter: number | null;
 };
 
 
