@@ -128,109 +128,26 @@ export default function Bevin() {
         const question = input.trim();
         if (!question) return;
 
-        // optimistic UI
         setMessages((prev) => [...prev, { role: "user", text: question }]);
-        setIntroVisible(false);
         setLoading(true);
-        setErr(null);
         setInput("");
 
         try {
-            // 1) parse intent
-            const intent = parseIntent(question);
+            const res = await fetch("/api/bevin-chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: question, limit: 10 }),
+            });
+            const data: { message: string; picks: any[]; error?: string; detail?: string } = await res.json();
 
-            // 2) build Supabase query directly on client
-            const columns =
-                "uuid, drink_name, price, rating, rating_count, tags, thoughts, recipe, location_purchased, image_url";
-
-            let q = supabase.from("recipes").select(columns);
-
-            if (intent.maxPrice != null) q = q.lte("price", intent.maxPrice);
-            if (intent.minRating != null) q = q.gte("rating", intent.minRating);
-
-            // overlap with expanded tags if present
-            const expanded =
-                intent.tag && TAG_SYNONYMS[intent.tag] ? TAG_SYNONYMS[intent.tag] : intent.tag ? [intent.tag] : [];
-            if (expanded.length) q = q.overlaps("tags", expanded);
-
-            // text term across a few fields
-            const term = intent.term;
-            if (term) {
-                q = q.or(
-                    `drink_name.ilike.%${term}%,thoughts.ilike.%${term}%,recipe.ilike.%${term}%`
-                );
-            }
-
-            // sort by rating then count
-            q = q.order("rating", { ascending: false }).order("rating_count", { ascending: false }).limit(12);
-
-            const { data, error } = await q;
-            if (error) throw error;
-
-            let candidates = (data || []).map((r: any, i: number): ChatPick => ({
-                i,
-                uuid: r.uuid,
-                name: r.drink_name,
-                price: r.price,
-                rating: r.rating,
-                rating_count: r.rating_count,
-                tags: r.tags,
-                location: r.location_purchased,
-                thoughts: r.thoughts,
-                recipe: r.recipe,
-                image_url: r.image_url,
-            }));
-
-            // optional "near me" nudge using miles in location string
-            if (intent.nearMe) {
-                const miles = (s: string | null) => {
-                    const m = /([\d.]+)\s*mi\b/i.exec(s || "");
-                    return m ? parseFloat(m[1]) : Number.POSITIVE_INFINITY;
-                };
-                candidates = [...candidates].sort((a, b) => miles(a.location) - miles(b.location));
-            }
-
-            // fallback tiers if empty
-            if (!candidates.length && expanded.length) {
-                const { data: d2 } = await supabase
-                    .from("recipes")
-                    .select(columns)
-                    .order("rating", { ascending: false })
-                    .order("rating_count", { ascending: false })
-                    .limit(12);
-                candidates = (d2 || []).map((r: any, i: number) => ({
-                    i,
-                    uuid: r.uuid,
-                    name: r.drink_name,
-                    price: r.price,
-                    rating: r.rating,
-                    rating_count: r.rating_count,
-                    tags: r.tags,
-                    location: r.location_purchased,
-                    thoughts: r.thoughts,
-                    recipe: r.recipe,
-                    image_url: r.image_url,
-                }));
-            }
-
-            const topPicks = candidates.slice(0, 3);
-            setPicks(topPicks);
-
-            // 3) compose a friendly answer locally (no OpenAI)
-            const reply = composeReply(intent, topPicks);
-            const botText = stripMarkdown(reply);
-
-            setMessages((prev) => [...prev, { role: "bot", text: botText }]);
-        } catch (e: any) {
-            setErr(e?.message || "Query failed");
-            setMessages((prev) => [
-                ...prev,
-                { role: "bot", text: "Whoops—I hit a snag. Try a simpler query like “citrus under $10”." },
-            ]);
+            setMessages((prev) => [...prev, { role: "bot", text: stripMarkdown(data.message || "Hmm, no reply.") }]);
+            setPicks(data.picks || []);
+            if (data.error) setErr(data.detail || data.error);
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <div className="bevin-screen">
@@ -253,8 +170,8 @@ export default function Bevin() {
                             <div
                                 key={i}
                                 className={`max-w-[80%] px-3 py-2 rounded-xl ${m.role === "user"
-                                        ? "ml-auto bg-[#9F90FF] text-white"
-                                        : "mr-auto bg-white/10 text-white"
+                                    ? "ml-auto bg-[#9F90FF] text-white"
+                                    : "mr-auto bg-white/10 text-white"
                                     }`}
                             >
                                 {m.text}
