@@ -4,7 +4,7 @@ import type { Recipe } from "../types/db";
 import SwipeCard from "../components/SwipeCard";
 import { useWishlist } from "../store/useWishlist";
 import { useExploreProgress } from "../store/useExploreProgress";
-import { Heart, X } from "lucide-react";
+
 
 export default function Explore() {
     const [cards, setCards] = useState<Recipe[]>([]);
@@ -45,9 +45,7 @@ export default function Explore() {
                 return;
             }
 
-            console.log("Swiping card uuid:", id, "direction:", dir);
-
-            // remove from stack
+            // remove from stack immediately for snappy UI
             removeFromStack(id);
 
             if (dir === "right") {
@@ -77,7 +75,6 @@ export default function Explore() {
                         (profile?.wishlist as string[]) ?? [];
 
                     if (currentWishlist.includes(id)) {
-                        console.log("Recipe already in wishlist:", id);
                         wishlist.add(id);
                         return;
                     }
@@ -92,7 +89,6 @@ export default function Explore() {
                     if (updateError) {
                         console.error("Error updating wishlist:", updateError);
                     } else {
-                        console.log("Wishlist updated with id:", id);
                         wishlist.add(id);
                     }
                 } catch (err) {
@@ -110,8 +106,8 @@ export default function Explore() {
                     <SwipeCard
                         key={topCard.uuid}
                         card={topCard}
-                        onSwipeLeft={(id) => { swipe(id, "left"); }}
-                        onSwipeRight={(id) => { swipe(id, "right"); }}
+                        onSwipeLeft={(id) => swipe(id, "left")}
+                        onSwipeRight={(id) => swipe(id, "right")}
                     />
                 ) : (
                     <div className="text-center text-zinc-400 text-lg">
@@ -120,36 +116,52 @@ export default function Explore() {
                 )}
             </div>
 
+            {/* action buttons near the bottom nav; mask ensures equal visual size */}
             {topCard && (
-                <div className="mt-4 flex items-center justify-center gap-8">
-                    <RoundBtn onClick={() => swipe(topCard.uuid, "left")}>
-                        <X className="h-5 w-5" />
-                    </RoundBtn>
-                    <RoundBtn glow onClick={() => swipe(topCard.uuid, "right")}>
-                        <Heart className="h-5 w-5" />
-                    </RoundBtn>
+                <div className="fixed bottom-24 left-0 right-0 flex justify-center gap-50 z-20">
+                    {/* Dislike */}
+                    <button
+                        onClick={() => swipe(topCard.uuid, "left")}
+                        aria-label="Dislike"
+                        className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-md"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                            className="h-8 w-8 text-red-500"
+                        >
+                            <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
+                            <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
+                        </svg>
+                    </button>
+
+                    {/* Like */}
+                    <button
+                        onClick={() => swipe(topCard.uuid, "right")}
+                        aria-label="Like"
+                        className="h-20 w-20 rounded-full bg-red-500 flex items-center justify-center shadow-md"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="white"
+                            strokeWidth={2}
+                            className="h-8 w-8"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 21l-1.45-1.318C5.4 15.36 2 12.278 2 8.5 2 5.462 4.462 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.538 3 22 5.462 22 8.5c0 3.778-3.4 6.86-8.55 11.182L12 21z"
+                            />
+                        </svg>
+                    </button>
                 </div>
             )}
-        </div>
-    );
-}
 
-function RoundBtn({
-    children,
-    glow,
-    onClick,
-}: {
-    children: React.ReactNode;
-    glow?: boolean;
-    onClick?: () => void;
-}) {
-    return (
-        <button
-            onClick={onClick}
-            className={`h-14 w-14 rounded-full grid place-items-center border border-[color:theme(colors.bevy.stroke)] bg-bevy-chip backdrop-blur ${glow ? "shadow-glow" : ""
-                }`}
-        >
-            {children}
-        </button>
+
+        </div>
     );
 }
