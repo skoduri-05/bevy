@@ -4,6 +4,7 @@ import type { Recipe } from "../types/db";
 import SwipeCard from "../components/SwipeCard";
 import { useWishlist } from "../store/useWishlist";
 import { useExploreProgress } from "../store/useExploreProgress";
+import { loadRecipes } from "../data/loadRecipes";
 
 
 export default function Explore() {
@@ -33,6 +34,10 @@ export default function Explore() {
             }
         })();
     }, [setStack, stack.length]);
+
+    useEffect(() => {
+        loadRecipes().then(setCards).catch(console.error);
+    }, []);
 
     // get top card
     const topCard = cards.find((c) => c.uuid === stack[0]);
