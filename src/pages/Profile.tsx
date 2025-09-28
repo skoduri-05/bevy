@@ -32,10 +32,13 @@ export default function Profile() {
   const [tempTags, setTempTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const [newPost, setNewPost] = useState({
     drink_name: "",
     location_purchased: "",
-    price: 0, // numeric
+    price: 0,
     tags: [] as string[],
     thoughts: "",
     recipe: "",
@@ -122,6 +125,12 @@ export default function Profile() {
   const handleCreatePost = async () => {
     if (!profile) return;
 
+    // Basic client-side validation (you can expand)
+    if (!newPost.drink_name.trim()) {
+      alert("Please enter a drink name.");
+      return;
+    }
+
     try {
       const { data: recipe, error: recipeErr } = await supabase
         .from("recipes")
@@ -145,6 +154,7 @@ export default function Profile() {
 
       if (recipeErr) {
         console.error("Error inserting recipe:", recipeErr);
+        alert("Error creating post. See console for details.");
         return;
       }
 
@@ -173,10 +183,135 @@ export default function Profile() {
         image_url: "",
       });
       setTagSearch("");
+      setUploadError(null);
     } catch (err) {
       console.error("Unexpected post creation error:", err);
+      alert("Unexpected error creating post. See console for details.");
     }
   };
+
+  // Handle image upload
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    try {
+      setUploadError(null);
+      const file = e.target.files?.[0];
+      if (!file || !profile) return;
+
+      // validate file type
+      if (!file.type.startsWith("image/")) {
+        setUploadError("Please select an image file.");
+        return;
+      }
+
+      // limit size (example: 5 MB)
+      const MAX_BYTES = 5 * 1024 * 1024;
+      if (file.size > MAX_BYTES) {
+        setUploadError("Image too large — please use a file smaller than 5 MB.");
+        return;
+      }
+
+      setUploading(true);
+
+      // create a unique path
+      const ext = file.name.split(".").pop();
+      const rand = Math.random().toString(36).slice(2, 9);
+      const timestamp = Date.now();
+      const filePath = `${profile.id}/${timestamp}_${rand}.${ext}`;
+
+      // upload
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("recipe_images")
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+
+      if (uploadError) {
+        // handle common storage errors
+        console.error("Upload error:", uploadError);
+        if ((uploadError as any).status === 409) {
+          // conflict: try again with a different name (rare due to rand suffix, but safe)
+          const altPath = `${profile.id}/${timestamp}_${rand}_${Math.floor(
+            Math.random() * 10000
+          )}.${ext}`;
+          const { data: altData, error: altErr } = await supabase.storage
+            .from("recipe_images")
+            .upload(altPath, file, { cacheControl: "3600", upsert: false });
+          if (altErr) {
+            console.error("Retry upload error:", altErr);
+            setUploadError("Upload failed (conflict). Check bucket permissions.");
+            return;
+          } else {
+            // use altPath below
+            console.log("Upload succeeded on retry", altData);
+            // proceed to get URL from altPath
+            return await finalizeImageUrl(altPath);
+          }
+        } else {
+          setUploadError(
+            `Upload failed: ${uploadError.message || "see console for details"}`
+          );
+          return;
+        }
+      }
+
+      // uploadData contains path info; finalize public/signed URL
+      const finalPath = uploadData?.path ?? filePath;
+      await finalizeImageUrl(finalPath);
+    } catch (err) {
+      console.error("Unexpected upload error:", err);
+      setUploadError("Unexpected upload error — see console for details.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // finalizeImageUrl: get public URL or signed URL fallback
+  async function finalizeImageUrl(path: string) {
+    try {
+      // first try public URL
+      const { data: publicData } = supabase.storage
+        .from("recipe_images")
+        .getPublicUrl(path);
+
+      let finalUrl = publicData?.publicUrl ?? "";
+
+      // quick test: try to fetch HEAD to see if accessible (may be blocked by CORS)
+      let accessible = false;
+      try {
+        // HEAD might be blocked by CORS; do fetch and if it returns status 200-299 we assume accessible
+        const res = await fetch(finalUrl, { method: "HEAD" });
+        accessible = res.ok;
+      } catch (fetchErr) {
+        // fetch can throw due to CORS — we can't reliably detect public/private in every environment.
+        console.warn("HEAD request for public URL threw (likely CORS):", fetchErr);
+        // treat as inaccessible and fall back to signed URL
+        accessible = false;
+      }
+
+      if (!finalUrl || !accessible) {
+        // fallback to signed URL for 7 days
+        const expiresIn = 60 * 60 * 24 * 7; // 7 days
+        const { data: signedData, error: signedErr } = await supabase.storage
+          .from("recipe_images")
+          .createSignedUrl(path, expiresIn);
+
+        if (signedErr || !signedData?.signedUrl) {
+          console.error("Signed URL error:", signedErr);
+          setUploadError(
+            "Uploaded but could not generate public URL. Check bucket public settings or enable signed URLs."
+          );
+          // still set path (not URL) so dev can inspect
+          setNewPost((prev) => ({ ...prev, image_url: "" }));
+          return;
+        }
+
+        finalUrl = signedData.signedUrl;
+      }
+
+      setNewPost((prev) => ({ ...prev, image_url: finalUrl }));
+    } catch (err) {
+      console.error("finalizeImageUrl error:", err);
+      setUploadError("Failed to get image URL after upload.");
+    }
+  }
 
   if (!profile) return <div className="px-4 pb-24">Loading…</div>;
 
@@ -335,6 +470,99 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Preferred Tags Editor Modal (unchanged UI from before) */}
+      {showTagEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowTagEditor(false)}
+          />
+          <div className="relative bg-zinc-900 rounded-2xl p-4 w-[22rem] h-[28rem] flex flex-col">
+            <h3 className="text-white mb-3">Edit Preferred Tags</h3>
+
+            {/* Selected tags */}
+            <div>
+              <div className="text-xs text-zinc-400 mb-1">Selected</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {tempTags.length > 0 ? (
+                  tempTags.map((t) => (
+                    <span
+                      key={t}
+                      className="px-3 py-1 rounded-full bg-white text-black text-xs cursor-pointer"
+                      onClick={() =>
+                        setTempTags(tempTags.filter((tag) => tag !== t))
+                      }
+                    >
+                      {tagLabel(t)} ×
+                    </span>
+                  ))
+                ) : (
+                  <div className="text-zinc-500 text-xs">No tags selected</div>
+                )}
+              </div>
+            </div>
+
+            {/* Available tags */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="text-xs text-zinc-400 mb-1">All Tags</div>
+              <div className="flex flex-wrap gap-2">
+                {TAG_FACETS.flatMap((f) => f.options).map((o) => {
+                  const selected = tempTags.includes(o.value);
+                  return (
+                    <button
+                      key={o.value}
+                      onClick={() => {
+                        if (selected) {
+                          setTempTags(tempTags.filter((t) => t !== o.value));
+                        } else {
+                          setTempTags([...tempTags, o.value]);
+                        }
+                      }}
+                      className={`px-3 py-1 rounded-full border text-xs transition ${
+                        selected
+                          ? "bg-white text-black border-white"
+                          : "bg-bevy-chip text-white border-[color:theme(colors.bevy.stroke)]"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Save / Cancel */}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="px-3 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white text-sm"
+                onClick={() => setShowTagEditor(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1 rounded-lg bg-white text-black text-sm"
+                onClick={async () => {
+                  if (!profile) return;
+                  const { error } = await supabase
+                    .from("profiles")
+                    .update({ preferred_tags: tempTags })
+                    .eq("id", profile.id);
+
+                  if (error) {
+                    console.error("Error updating tags:", error);
+                  } else {
+                    setProfile({ ...profile, preferred_tags: tempTags });
+                    setShowTagEditor(false);
+                  }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Post Modal */}
       {showPostModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
@@ -385,14 +613,35 @@ export default function Profile() {
                 setNewPost({ ...newPost, recipe: e.target.value })
               }
             />
-            <input
-              className="w-full p-2 rounded bg-zinc-700 text-sm"
-              placeholder="Image URL"
-              value={newPost.image_url}
-              onChange={(e) =>
-                setNewPost({ ...newPost, image_url: e.target.value })
-              }
-            />
+
+            {/* Upload Image */}
+            <div>
+              <label className="text-sm font-medium">Upload Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                className="mt-1 block w-full text-sm text-zinc-300
+                           file:mr-4 file:py-2 file:px-4
+                           file:rounded-full file:border-0
+                           file:text-sm file:font-semibold
+                           file:bg-zinc-700 file:text-white
+                           hover:file:bg-zinc-600"
+                onChange={handleImageUpload}
+              />
+              {uploading && (
+                <p className="text-xs text-zinc-400 mt-1">Uploading...</p>
+              )}
+              {uploadError && (
+                <p className="text-xs text-red-400 mt-1">{uploadError}</p>
+              )}
+              {newPost.image_url && (
+                <img
+                  src={newPost.image_url}
+                  alt="Preview"
+                  className="mt-2 h-32 w-auto rounded-lg object-cover"
+                />
+              )}
+            </div>
 
             {/* Tag Search */}
             <div>
