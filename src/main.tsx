@@ -8,7 +8,7 @@ import Wishlist from "./pages/Wishlist";
 import Search from "./pages/Search";
 import Bevin from "./pages/Bevin";
 import Profile from "./pages/Profile";
-
+import About from "./pages/About";
 
 const router = createBrowserRouter([
     {
@@ -20,6 +20,7 @@ const router = createBrowserRouter([
             { path: "search", element: <Search /> },
             { path: "bevin", element: <Bevin /> },
             { path: "profile/:id?", element: <Profile /> },
+            { path: "about", element: <About /> },
         ],
     },
 ]);
