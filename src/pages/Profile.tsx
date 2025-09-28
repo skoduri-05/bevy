@@ -313,7 +313,34 @@ export default function Profile() {
     }
   }
 
-  if (!profile) return <div className="px-4 pb-24">Loading…</div>;
+  if (!profile)
+    return (
+      <div className="px-4 pb-24">
+        <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-6 text-center">
+          <h3 className="text-lg font-semibold mb-2">Welcome to Bevy</h3>
+          <p className="text-sm text-zinc-400 mb-4">You’re not signed in yet. Create an account or sign in to view and create posts.</p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => {
+                // dispatch a global event that BevyApp listens for to open the auth sheet
+                window.dispatchEvent(new CustomEvent("bevy:open-auth"));
+                // also navigate to home so the auth sheet is visible within the main layout
+                navigate("/");
+              }}
+              className="px-4 py-2 rounded-xl bg-purple-600 text-white"
+            >
+              Create account / Sign in
+            </button>
+            <button
+              onClick={() => navigate("/")}
+              className="px-4 py-2 rounded-xl border border-zinc-700 text-white"
+            >
+              Browse as guest
+            </button>
+          </div>
+        </div>
+      </div>
+    );
 
   return (
     <div className="px-4 pb-24">
